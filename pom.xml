@@ -1,0 +1,82 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<!-- the version of maven's project object model. Let this unchanged! -->
+	<modelVersion>4.0.0</modelVersion>
+
+	<artifactId>p2p-sync-android</artifactId>
+	<groupId>de.mpasch</groupId>
+	<version>0.0.1-SNAPSHOT</version>
+
+	<name>p2p-sync-android</name>
+
+
+
+	<description></description>
+
+	<!-- Information required to build the project. -->
+	<build>
+		<sourceDirectory>src/main/java</sourceDirectory>
+		<!-- scriptSourceDirectory>src/main/scripts</scriptSourceDirectory -->
+		<testSourceDirectory>src/test/java</testSourceDirectory>
+		<!--outputDirectory>target/classes</outputDirectory -->
+		<!-- testOutputDirectory>target/test-classes</testOutputDirectory -->
+	</build>
+	<repositories>
+		<repository>
+			<id>couchbase</id>
+			<url>http://maven.hq.couchbase.com/nexus/content/repositories/releases/</url>
+		</repository>
+	</repositories>
+
+	<!-- the dependencies that are required for this project -->
+	<dependencies>
+		<dependency>
+			<groupId>com.android.support</groupId>
+			<artifactId>support-v4</artifactId>
+			<version>13.0.0</version>
+			<scope>system</scope>
+			<systemPath>${basedir}/libs/android-support-v4.jar</systemPath>
+		</dependency>
+		<!-- Funktionieren leider noch nicht... diese Art von Packaging ist irgendwie 
+			komisch. (sind jetzt im libs Verzeichnis) -->
+		<!-- <dependency> -->
+		<!-- <groupId>com.couchbase.cblite</groupId> -->
+		<!-- <artifactId>CBLite</artifactId> -->
+		<!-- <version>0.7</version> -->
+		<!-- <type>aar</type> -->
+		<!-- </dependency> -->
+		<!-- <dependency> -->
+		<!-- <groupId>com.couchbase.cblite</groupId> -->
+		<!-- <artifactId>CBLiteEktorp</artifactId> -->
+		<!-- <version>0.7.2</version> -->
+		<!-- <type>aar</type> -->
+		<!-- </dependency> -->
+
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-jdk14</artifactId>
+			<version>1.6.1</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.ektorp</groupId>
+			<artifactId>org.ektorp</artifactId>
+			<version>1.2.3</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.codehaus.jackson</groupId>
+			<artifactId>jackson-mapper-asl</artifactId>
+			<version>1.9.2</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.codehaus.jackson</groupId>
+			<artifactId>jackson-core-asl</artifactId>
+			<version>1.9.2</version>
+			<scope>compile</scope>
+		</dependency>
+	</dependencies>
+
+
+</project>
