@@ -1,6 +1,6 @@
 package de.mpasch.p2p_sync.android.sync.auth;
 
-import de.mpasch.p2p_sync.android.sync.Constants;
+import de.mpasch.p2p_sync.android.Constants;
 import android.accounts.AbstractAccountAuthenticator;
 import android.accounts.Account;
 import android.accounts.AccountAuthenticatorResponse;

@@ -44,4 +44,9 @@
     <!--  HTTP CB Service -->
     <string name="local_service_started">Service gestartet</string>
     <string name="local_service_stopped">Service gestoppt</string>
+    
+    
+    <!-- Contact Edit activity -->
+    <string name="edit_contact_activity">Kontakt editieren</string>
+    <string name="show_all_activity">Kontakte anzeigen</string>
 </resources>

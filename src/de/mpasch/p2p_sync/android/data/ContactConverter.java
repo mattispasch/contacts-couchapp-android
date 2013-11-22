@@ -9,7 +9,7 @@ import android.content.ContentValues;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.RawContacts;
 import android.util.Log;
-import de.mpasch.p2p_sync.android.sync.Constants;
+import de.mpasch.p2p_sync.android.Constants;
 
 public class ContactConverter {
 
@@ -22,10 +22,12 @@ public class ContactConverter {
 
 		header.put(RawContacts.ACCOUNT_TYPE, Constants.ACCOUNT_TYPE);
 		header.put(RawContacts.ACCOUNT_NAME, accountName);
-
 		//
+		
+		String contentItemType = RawContacts.CONTENT_ITEM_TYPE;
 		header.put(RawContacts.SOURCE_ID, getId(json));
 
+		
 		return header;
 	}
 
