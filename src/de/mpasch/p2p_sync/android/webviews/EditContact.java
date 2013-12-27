@@ -3,7 +3,9 @@ package de.mpasch.p2p_sync.android.webviews;
 import java.net.URI;
 
 import de.mpasch.p2p_sync.android.Constants;
+import de.mpasch.p2p_sync.android.MyApplication;
 import de.mpasch.p2p_sync.android.R;
+import de.mpasch.p2p_sync.android.db.DatabaseDAO;
 import de.mpasch.p2p_sync.android.sync.couch2android.Couch2AndroidSyncer;
 import android.accounts.Account;
 import android.accounts.AccountManager;
@@ -120,8 +122,9 @@ public class EditContact extends Activity {
 		}
 
 		final SyncResult syncResult = new SyncResult();
+		final DatabaseDAO db = ((MyApplication) getApplication()).getDatabase();
 		final Couch2AndroidSyncer couch2AndroidSyncer = new Couch2AndroidSyncer(
-				getApplicationContext());
+				getApplicationContext(), db);
 		couch2AndroidSyncer.sync(accounts[0], syncResult);
 
 		super.onPause();

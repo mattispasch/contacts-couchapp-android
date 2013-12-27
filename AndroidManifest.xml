@@ -23,7 +23,21 @@
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
-        android:theme="@style/AppTheme" >
+        android:theme="@style/AppTheme"
+        android:name="de.mpasch.p2p_sync.android.MyApplication" >
+         <activity
+            android:name="de.mpasch.p2p_sync.android.settings.SyncListActivity"
+            android:label="@string/sync_peers_app_name" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+         <activity
+            android:name="de.mpasch.p2p_sync.android.settings.SyncPeerEditActivity"
+            android:label="@string/sync_peers_app_name" >
+        </activity>
         <activity
             android:name="de.mpasch.p2p_sync.android.ManualSyncActivity"
             android:label="@string/app_name" >

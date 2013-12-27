@@ -1,11 +1,11 @@
 package de.mpasch.p2p_sync.android.sync;
 
-
-
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
+import de.mpasch.p2p_sync.android.MyApplication;
+import de.mpasch.p2p_sync.android.db.DatabaseDAO;
 
 public class SyncService extends Service {
 	private static final Object sSyncAdapterLock = new Object();
@@ -19,7 +19,8 @@ public class SyncService extends Service {
 		Log.i(TAG, "onCreate()");
 		synchronized (sSyncAdapterLock) {
 			if (sSyncAdapter == null) {
-				sSyncAdapter = new SyncAdapter(getApplicationContext(), true);
+				final DatabaseDAO db = ((MyApplication) getApplication()).getDatabase();
+				sSyncAdapter = new SyncAdapter(getApplicationContext(), db, true);
 			}
 		}
 	}

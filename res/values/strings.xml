@@ -5,6 +5,18 @@
     <string name="action_settings">Settings</string>
     <string name="hello_world">Hello world!</string>
 
+    <!-- BEGIN: Sync Peers -->
+    <string name="sync_peers_app_name">Sync Peers</string>
+    <string name="action_add_sync_peer">Add</string>
+    
+    <!-- Edit-activity -->
+    <string name="sync_peer_edit_name">Name:</string>
+    <string name="sync_peer_edit_url">Remote URL:</string>
+    
+    <!-- END: Sync Peers -->
+    
+    
+    
     <!-- Label for this package -->
     <string name="label">P2P-Sync</string>
 

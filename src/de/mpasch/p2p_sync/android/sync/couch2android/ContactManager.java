@@ -67,6 +67,13 @@ public class ContactManager {
 		}
 
 	}
+	
+	public void deleteContact(String accountName,
+			ArrayList<ContentProviderOperation> ops, JsonNode deletedContact,
+			String androidContactId, ContentResolver resolver) {
+		final Uri uri = RawContacts.CONTENT_URI.buildUpon().build();
+		resolver.delete(uri, RawContacts._ID + "=?", new String[]{androidContactId});
+	}
 
 	private void updateName(
 			final List<ContentProviderOperation.Builder> builders,
@@ -358,4 +365,6 @@ public class ContactManager {
 		
 		return builder.build();
 	}
+
+	
 }

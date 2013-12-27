@@ -1,6 +1,7 @@
 package de.mpasch.p2p_sync.android.db;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,17 +10,30 @@ import org.ektorp.CouchDbConnector;
 import org.ektorp.CouchDbInstance;
 import org.ektorp.DbInfo;
 import org.ektorp.ReplicationCommand;
+import org.ektorp.ReplicationStatus;
+import org.ektorp.android.http.AndroidHttpClient;
+import org.ektorp.android.http.AndroidHttpClient.Builder;
 import org.ektorp.changes.ChangesCommand;
 import org.ektorp.changes.DocumentChange;
 import org.ektorp.http.HttpClient;
+import org.ektorp.http.StdHttpClient;
 import org.ektorp.impl.StdCouchDbInstance;
 
 import android.content.Context;
 import android.util.Log;
 
+import com.couchbase.cblite.CBLDatabase;
+import com.couchbase.cblite.CBLFilterBlock;
+import com.couchbase.cblite.CBLRevision;
 import com.couchbase.cblite.CBLServer;
+import com.couchbase.cblite.CBLView;
 import com.couchbase.cblite.ektorp.CBLiteHttpClient;
+import com.couchbase.cblite.javascript.CBLJavaScriptViewCompiler;
 import com.couchbase.cblite.router.CBLURLStreamHandlerFactory;
+
+import de.mpasch.p2p_sync.android.Callback;
+import de.mpasch.p2p_sync.android.httpservice.Filters;
+import de.mpasch.p2p_sync.android.settings.SyncPeerRepository;
 
 public class DatabaseDAO {
 
@@ -46,6 +60,10 @@ public class DatabaseDAO {
 	private final DBListener listener;
 
 	private final boolean async;
+
+	private ContactRepository contactRepo;
+
+	private SyncPeerRepository syncPeerRepo;
 
 	/**
 	 * No Async excecution
@@ -87,6 +105,8 @@ public class DatabaseDAO {
 
 		httpClient = new CBLiteHttpClient(server);
 		dbInstance = new StdCouchDbInstance(httpClient);
+
+		CBLView.setCompiler(new CBLJavaScriptViewCompiler());
 
 		if (async) {
 			SyncEktorpAsyncTask startupTask = new SyncEktorpAsyncTask() {
@@ -151,47 +171,109 @@ public class DatabaseDAO {
 		}
 	}
 
+	/**
+	 * 
+	 * @param remoteDatabaseUrl
+	 * @return true, if DB changed locally, false, if not changed
+	 * @throws ReplicationException
+	 *             if there was an error
+	 */
+	public boolean replicateContacts(String remoteDatabaseUrl)
+			throws ReplicationException {
+
+		// TODO: filter pull replication (filter has to exist on remote
+		// Database..)
+
+		final ReplicationCommand pull = new ReplicationCommand.Builder()
+				.source(remoteDatabaseUrl).target(DATABASE_NAME)
+				// .filter(Filters.FILTER_CONTACTS_INCL_DELETED)
+				.continuous(false).build();
+		final ReplicationCommand push = new ReplicationCommand.Builder()
+				.source(DATABASE_NAME).target(remoteDatabaseUrl)
+				.filter(Filters.FILTER_CONTACTS_INCL_DELETED).continuous(false)
+				.build();
+
+		ReplicationStatus pullStatus = dbInstance.replicate(pull);
+		if (!pullStatus.isOk()) {
+			throw new ReplicationException("pull was not successful!");
+		}
+
+		ReplicationStatus pushStatus = dbInstance.replicate(push);
+		if (!pushStatus.isOk()) {
+			throw new ReplicationException("push was not successful!");
+		}
+		return !pullStatus.isNoChanges();
+	}
+
 	public void start(Context context) {
+		Log.v(TAG, "Starting Database...");
 		String filesDir = context.getFilesDir().getAbsolutePath();
 		try {
 			server = new CBLServer(filesDir);
-			server.getDatabaseNamed("contacts");
+
 			startEktorp();
+			Log.v(TAG, "Database started.");
 		} catch (IOException e) {
 			Log.e(TAG, "Error starting TDServer", e);
 		}
+		new Filters().installContactFilters(server);
 	}
 
-	public List<JsonNode> getContacts() {
-		final List<String> allDocIds = couchDbConnector.getAllDocIds();
-		final List<JsonNode> all = new ArrayList<JsonNode>();
+	// NOT WORKING!
+	private void startNetwork() {
+		Log.v(TAG, "starting ektorp (network)");
 
-		for (String id : allDocIds) {
-			all.add(couchDbConnector.get(JsonNode.class, id));
-		}
+		new Thread(new Runnable() {
 
-		return all;
-	}
+			@Override
+			public void run() {
 
-	public List<JsonNode> getContacts(int limit) {
-		final List<String> allDocIds = couchDbConnector.getAllDocIds();
-		final List<JsonNode> all = new ArrayList<JsonNode>();
+				if (httpClient != null) {
+					httpClient.shutdown();
+				}
 
-		int count = 0;
-		for (String id : allDocIds) {
-			all.add(couchDbConnector.get(JsonNode.class, id));
-			count++;
-			if (count >= limit) {
-				break;
+				// HttpClient httpClient = new StdHttpClient.Builder().build();
+
+				final Integer port = 5984;
+				final String hostName = "localhost";
+				final Builder builder = new AndroidHttpClient.Builder()
+						.host(hostName).port(port).useExpectContinue(false);
+				httpClient = builder.build();
+
+				// new
+				// AndroidHttpClient.Builder().url("http://localhost:5984").build();
+
+				// httpClient = new CBLiteHttpClient(server);
+				dbInstance = new StdCouchDbInstance(httpClient);
+
+				CBLView.setCompiler(new CBLJavaScriptViewCompiler());
+				couchDbConnector = dbInstance.createConnector(DATABASE_NAME,
+						true);
+				Log.d(TAG, "Ektorp connected via network.");
+				listener.onConnected();
 			}
-		}
 
-		return all;
+		}).start();
+
+	}
+
+	public ContactRepository getContactRepository() {
+		if (contactRepo == null) {
+			contactRepo = new ContactRepository(couchDbConnector);
+		}
+		return contactRepo;
+	}
+
+	public SyncPeerRepository getSyncPeerRepository() {
+		if (syncPeerRepo == null) {
+			syncPeerRepo = new SyncPeerRepository(couchDbConnector);
+		}
+		return syncPeerRepo;
 	}
 
 	public JsonNode getContact(String id) {
-		return couchDbConnector.get(JsonNode.class, id);
-
+		// return couchDbConnector.get(JsonNode.class, id);
+		return getContactRepository().get(id);
 	}
 
 	public long getUpdateSeq() {
@@ -200,20 +282,28 @@ public class DatabaseDAO {
 	}
 
 	public List<JsonNode> getChangedContacts(long updateSequence) {
-		final List<JsonNode> changedContacts = new ArrayList<JsonNode>();
+		return getContactRepository().getChangedContacts(updateSequence);
+	}
 
-		final ChangesCommand cmd = new ChangesCommand.Builder().since(
-				updateSequence).includeDocs(true).build();
-
-		final List<DocumentChange> changes = couchDbConnector.changes(cmd);
-		for (DocumentChange documentChange : changes) {
-			changedContacts.add(documentChange.getDocAsNode());
-		}
-		return changedContacts;
+	public List<JsonNode> getDeletedContacts(long updateSequence) {
+		return getContactRepository().getDeletedContacts(updateSequence);
 	}
 
 	public void update(JsonNode updatedContact) {
 		couchDbConnector.update(updatedContact);
+	}
+
+	public CouchDbConnector getConnector() {
+		return couchDbConnector;
+	}
+
+	public void close() {
+		if (httpClient != null) {
+			httpClient.shutdown();
+		}
+		if (server != null) {
+			server.close();
+		}
 	}
 
 }

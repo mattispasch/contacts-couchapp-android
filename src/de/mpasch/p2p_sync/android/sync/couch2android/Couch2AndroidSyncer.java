@@ -30,6 +30,7 @@ import android.provider.ContactsContract.Settings;
 import android.text.TextUtils;
 import android.util.Log;
 import de.mpasch.p2p_sync.android.Constants;
+import de.mpasch.p2p_sync.android.MyApplication;
 import de.mpasch.p2p_sync.android.data.ContactConverter;
 import de.mpasch.p2p_sync.android.db.DatabaseDAO;
 
@@ -42,17 +43,17 @@ public class Couch2AndroidSyncer {
 	private final AccountManager accountManager;
 
 	private final Context context;
+
+	private final DatabaseDAO database;
 	
-	public Couch2AndroidSyncer(Context context) {
+	public Couch2AndroidSyncer(Context context, DatabaseDAO database) {
 		this.context = context;
 		this.accountManager = AccountManager.get(context);
+		this.database = database;
 	}
-	
-		
+
 	public void sync(Account account, SyncResult syncResult) {
-		final DatabaseDAO database = new DatabaseDAO();
 		final ContactManager contactManager = new ContactManager();
-		database.start(context);
 
 		try {
 			// see if we already have a sync-state attached to this account. By
@@ -71,8 +72,6 @@ public class Couch2AndroidSyncer {
 			}
 
 			List<AndroidContactHeader> androidDirtyContacts;
-			List<JsonNode> couchDirtyContacts;
-
 			// Use the account manager to request the AuthToken we'll need
 			// to talk to our sample server. If we don't have an AuthToken
 			// yet, this could involve a round-trip to the server to request
@@ -89,16 +88,21 @@ public class Couch2AndroidSyncer {
 					contactManager, authtoken, database, androidDirtyContacts);
 
 			// 3) get Contacts which changed in CouchDB
-			couchDirtyContacts = getCouchDirtyContacts(account, authtoken,
+			final List<JsonNode> couchDirtyContacts = getCouchDirtyContacts(
 					database, lastSyncMarker);
 
-			// 4) get Current Couch UpdateSeqence:
+			// 4) get Contacts which changed in CouchDB
+			final List<JsonNode> couchDeletedContacts = getCouchDeletedContacts(
+					database, lastSyncMarker);
+
+			// 5) get Current Couch UpdateSeqence: TODO: Race-Condition?
 			long newSyncMarker = getCouchCurrentUpdateSeq(database);
 
-			// 4) send Couch-Changes to Android-DB
-			updateContactsInAndroid(context, account.name, couchDirtyContacts);
+			// 6) send Couch-Changes to Android-DB
+			updateContactsInAndroid(context, account.name, couchDirtyContacts,
+					couchDeletedContacts);
 
-			// 5) set SyncMarker in Android-DB to the current CouchDB
+			// 7) set SyncMarker in Android-DB to the current CouchDB
 			// "syncmarker"
 			setServerSyncMarker(account, newSyncMarker);
 
@@ -163,11 +167,13 @@ public class Couch2AndroidSyncer {
 	}
 
 	/**
+	 * @param couchDeletedContacts
 	 * @throws IOException
 	 */
 	private synchronized ContentProviderResult[] updateContactsInAndroid(
 			Context context, String accountName,
-			List<JsonNode> couchDirtyContacts) throws RemoteException,
+			List<JsonNode> couchDirtyContacts,
+			List<JsonNode> couchDeletedContacts) throws RemoteException,
 			OperationApplicationException, IOException {
 		final ContactConverter converter = new ContactConverter();
 		final ContactManager contactManager = new ContactManager();
@@ -178,12 +184,16 @@ public class Couch2AndroidSyncer {
 		ArrayList<ContentProviderOperation> ops = new ArrayList<ContentProviderOperation>();
 		for (final JsonNode contact : couchDirtyContacts) {
 
+			final String id = converter.getId(contact);
 			if (contact instanceof MissingNode
 					|| (contact.get("_deleted") != null && contact.get(
 							"_deleted").asBoolean())) {
+
+				Log.e(TAG,
+						"ERROR: this shouldn't happen... -  Contact deleted in Couch: "
+								+ id);
 				// delete contact?
 			} else {
-				final String id = converter.getId(contact);
 
 				final Cursor cursor = contactManager.findContactById(
 						accountName, resolver, id);
@@ -192,13 +202,26 @@ public class Couch2AndroidSyncer {
 					// no results => create new Contact
 					contactManager.insertContact(accountName, ops, contact);
 				} else {
-					// there exactly one contact => Update
+					// there should be exactly one contact => Update
 					cursor.moveToFirst();
 					final String androidContactId = cursor.getString(0);
 					contactManager.updateContact(accountName, ops, contact,
 							androidContactId, resolver);
 				}
 				cursor.close();
+			}
+		}
+		for (JsonNode deletedContact : couchDeletedContacts) {
+			final String id = converter.getId(deletedContact);
+			final Cursor cursor = contactManager.findContactById(accountName,
+					resolver, id);
+			if (cursor.getCount() > 0) {
+				cursor.moveToFirst();
+				final String androidContactId = cursor.getString(0);
+				contactManager.deleteContact(accountName, ops, deletedContact,
+						androidContactId, resolver);
+			} else {
+				Log.i(TAG, "A contact was deleted in couchdb which didn't exist in android yet: " + id);
 			}
 		}
 
@@ -216,19 +239,28 @@ public class Couch2AndroidSyncer {
 		return database.getUpdateSeq();
 	}
 
-	/**
-	 */
-	private List<JsonNode> getCouchDirtyContacts(Account account,
-			String authtoken, DatabaseDAO database, long androidUpdateSeq)
-			throws JSONException, ParseException, IOException,
-			AuthenticationException {
-		Log.d(TAG, "syncContacts (with couchDB)");
+	private List<JsonNode> getCouchDirtyContacts(DatabaseDAO database,
+			long androidUpdateSeq) throws JSONException, ParseException,
+			IOException, AuthenticationException {
 
 		final List<JsonNode> couchDirtyList = database
 				.getChangedContacts(androidUpdateSeq);
 
 		Log.d(TAG, "There are " + couchDirtyList.size()
 				+ " changed contacts in CouchDB since last sync.");
+		return couchDirtyList;
+	}
+
+	private List<JsonNode> getCouchDeletedContacts(DatabaseDAO database,
+			long androidUpdateSeq) throws JSONException, ParseException,
+			IOException, AuthenticationException {
+		Log.d(TAG, "syncContacts (with couchDB)");
+
+		final List<JsonNode> couchDirtyList = database.getContactRepository()
+				.getDeletedContacts(androidUpdateSeq);
+
+		Log.d(TAG, "There are " + couchDirtyList.size()
+				+ " deleted contacts in CouchDB since last sync.");
 		return couchDirtyList;
 	}
 
